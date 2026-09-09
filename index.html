@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jugar para crear</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        :root {
+            color-scheme: light;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #202025;
+            background: #fff;
+        }
+
+        body {
+            margin: 0;
+        }
+
+        button {
+            font: inherit;
+        }
+
+        .page {
+            height: 100svh;
+            min-height: 580px;
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            background: white;
+        }
+
+        header {
+            text-align: center;
+            padding: clamp(28px, 5vh, 60px) 20px 0;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        h1 {
+            margin: 0;
+            color: #e41f26;
+            font-family: "Arial Black", Arial, sans-serif;
+            font-size: clamp(38px, 7vw, 82px);
+            font-weight: 900;
+            letter-spacing: -.065em;
+            line-height: 1.15;
+            transform: skew(-7deg);
+            paint-order: stroke fill;
+            -webkit-text-stroke: 2px white;
+            text-shadow: 2px 3px 0 #ffcc00;
+        }
+
+        .instructions {
+            margin: 12px 0 0;
+            color: #707078;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 14px;
+            font-weight: 400;
+            letter-spacing: .02em;
+        }
+
+        #stage {
+            position: relative;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: pan-y;
+            outline-offset: -6px;
+        }
+
+        canvas:focus-visible {
+            outline: 2px solid #e41f26;
+        }
+
+        footer {
+            text-align: center;
+            padding: 12px 16px 24px;
+            font-size: 11px;
+            line-height: 1.9;
+            color: #62626a;
+            letter-spacing: .035em;
+        }
+
+        footer strong {
+            color: #303038;
+        }
+
+        #dialog {
+            width: min(450px, calc(100vw - 36px));
+            max-height: 85svh;
+            padding: 30px 42px 30px 30px;
+            border: none;
+            border-radius: 24px;
+            background: linear-gradient(135deg, #ffffff, #f7f7f9);
+            color: #202025;
+            box-shadow: 0 20px 80px rgb(0 0 0 / 15%), 0 0 0 1px rgba(0, 0, 0, 0.05);
+        }
+
+        #dialog::backdrop {
+            background: rgb(255 255 255 / 35%);
+            backdrop-filter: blur(3px);
+        }
+
+        #dialog-title {
+            margin: 0 0 16px;
+            color: #e41f26;
+            font-family: "Arial Black", Arial, sans-serif;
+            font-size: 22px;
+            line-height: 1.2;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+
+        #text {
+            margin: 0;
+            color: #40404a;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        #text ul {
+            padding-left: 20px;
+            margin-top: 10px;
+        }
+
+        #text li {
+            margin-bottom: 8px;
+        }
+
+        #text strong {
+            color: #202025;
+        }
+
+        .close {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: #55555f;
+            font-size: 23px;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        button:focus-visible {
+            outline: 3px solid #e41f26;
+            outline-offset: 4px;
+        }
+
+        #error {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: min(360px, 85%);
+            color: #802027;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
+        @media (max-width: 600px) {
+            .page {
+                min-height: 540px;
+            }
+
+            header {
+                padding-top: 34px;
+            }
+
+            footer {
+                font-size: 10px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page">
+        <header>
+            <h1>Jugar para crear</h1>
+            <p class="instructions">da clic en el lego</p>
+        </header>
+        <main id="stage">
+            <p id="error" role="alert" hidden></p>
+        </main>
+        <footer>
+            <strong>Gabriel Torres</strong> & <strong>Pedro Gomez</strong>
+            <br>2026 · Taller en énfasis 1
+        </footer>
+    </div>
+    <dialog id="dialog" aria-label="Reflexión" aria-describedby="text">
+        <button class="close" id="close" type="button" aria-label="Cerrar reflexión">×</button>
+        <h2 id="dialog-title"></h2>
+        <div id="text"></div>
+    </dialog>
+    <!-- Se necesita conexión a internet para cargar Three.js y la imagen. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+    <script>
+        "use strict";
+
+        // Reflexiones sugeridas: brazos, piernas y cabeza, respectivamente.
+        const messages = [
+            {
+                title: "El Ingeniero Creativo",
+                text: "<strong>¡Jugar es nuestra mayor herramienta!</strong><br><br>El ingeniero creativo tiene la habilidad fundamental de <em>'JUGAR'</em> con ideas y conceptos. No te limites a lo conocido: construir, probar y ajustar te permite descubrir soluciones innovadoras que antes no veías."
+            },
+            {
+                title: "¡Aprendamos a hablar en LEGO!",
+                text: "<strong>Reglas del Juego Serio (LSP):</strong><br><ul><li>Observen los modelos y escuchen las historias. No hay que interpretar ni criticar.</li><li>Diferentes modos de pensar enriquecen al equipo. ¡El respeto es clave!</li><li>No se preocupen por el resultado final, disfruten el proceso.</li></ul><strong>¡Vamos a descubrir algo nuevo!</strong>"
+            },
+            {
+                title: "Metodología LEGO® Serious Play®",
+                text: "El proceso para resolver problemas paso a paso:<br><br><strong>1. Desafío:</strong> Reto sobre el cual construir un modelo.<br><strong>2. Construir:</strong> Crear un modelo 3D para responder.<br><strong>3. Compartir:</strong> Darle un significado a lo construido.<br><strong>4. Reflexionar:</strong> ¡Aprender colaborativamente!"
+            },
+            {
+                title: "Marco Cynefin",
+                text: "<strong>Los Dominios de los Problemas</strong><br><br>🔹 <em>Simple:</em> Mejores prácticas (Percibir - Categorizar - Responder)<br>🔹 <em>Complicado:</em> Buenas prácticas (Percibir - Analizar - Responder)<br>🔹 <em>Complejo:</em> Prácticas emergentes (Probar - Percibir - Responder)<br>🔹 <em>Caótico:</em> Prácticas novedosas (Actuar - Percibir - Responder)"
+            },
+            {
+                title: "¿Qué descubrimos?",
+                text: "<strong>Debriefing y Reflexión</strong><br><br>Intuitivamente... <em>¿En cuál iteración te sentiste más cómodo(a)?</em><br><br>Nuestro estilo natural de imaginación domina nuestras respuestas cuando hay necesidad de resultados creativos. ¡Reconocer cómo imaginamos nos invita a explorar otras formas de crear!"
+            }
+        ];
+        const dialog = document.getElementById("dialog");
+        const closeButton = document.getElementById("close");
+        let canvas;
+
+        function openReflection(index) {
+            document.getElementById("dialog-title").textContent = messages[index].title;
+            document.getElementById("text").innerHTML = messages[index].text;
+            if (!dialog.open) dialog.showModal();
+            closeButton.focus();
+        }
+        closeButton.onclick = () => dialog.close();
+        dialog.addEventListener("close", () => canvas?.focus());
+        dialog.addEventListener("click", event => {
+            if (event.target !== dialog) return;
+            const r = dialog.getBoundingClientRect();
+            if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dialog.close();
+        });
+
+        function start() {
+            if (!window.THREE) throw new Error("No se pudo cargar Three.js.");
+            const T = THREE;
+            const stage = document.getElementById("stage");
+            const scene = new T.Scene();
+            scene.background = new T.Color(0xffffff);
+            const renderer = new T.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+            renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+            renderer.outputColorSpace = T.SRGBColorSpace;
+            renderer.toneMapping = T.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.12;
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = T.PCFSoftShadowMap;
+            canvas = renderer.domElement;
+            canvas.tabIndex = 0;
+            canvas.setAttribute("role", "button");
+            canvas.setAttribute("aria-label", "Figura 3D interactiva. Haz clic en cabeza, brazos o piernas. Con teclado: flechas para elegir una parte y Enter para abrir.");
+            stage.prepend(canvas);
+            const camera = new T.PerspectiveCamera(32, 1, .1, 100);
+            const focus = new T.Vector3(0, 2.24, 0);
+
+            // Entorno de estudio para los reflejos PBR.
+            const studio = new T.Scene();
+            studio.background = new T.Color(0x757b85);
+            function softbox(w, h, x, y, z, power) {
+                const panel = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ color: new T.Color(power, power, power), side: T.DoubleSide }));
+                panel.position.set(x, y, z);
+                panel.lookAt(0, 2, 0);
+                studio.add(panel);
+            }
+            softbox(5, 8, -5, 6, 5, 4);
+            softbox(3, 7, 5, 4, 2, 2.5);
+            softbox(5, 3, 0, 8, -3, 3);
+            softbox(2, 5, -4, 3, -5, 2);
+            const pmrem = new T.PMREMGenerator(renderer);
+            const environment = pmrem.fromScene(studio, .04);
+            scene.environment = environment.texture;
+            pmrem.dispose();
+            scene.add(new T.HemisphereLight(0xffffff, 0xbac1cc, 1.6));
+            const key = new T.DirectionalLight(0xfff5e6, 3.5);
+            key.position.set(-3, 7, 5);
+            key.castShadow = true;
+            key.shadow.mapSize.set(2048, 2048);
+            key.shadow.camera.left = -4;
+            key.shadow.camera.right = 4;
+            key.shadow.camera.top = 6;
+            key.shadow.camera.bottom = -3;
+            key.shadow.normalBias = .025;
+            key.shadow.bias = -.0002;
+            key.shadow.radius = 4;
+            scene.add(key);
+            const fill = new T.DirectionalLight(0xe2ecff, 1.7);
+            fill.position.set(4, 3, 2);
+            scene.add(fill);
+            const rim = new T.DirectionalLight(0xffffff, 2.4);
+            rim.position.set(1, 6, -4);
+            scene.add(rim);
+            const ground = new T.Mesh(new T.PlaneGeometry(200, 200), new T.ShadowMaterial({ opacity: .13 }));
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -.005;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            function plastic(color, roughness = .24) {
+                return new T.MeshPhysicalMaterial({ color, roughness, metalness: 0, clearcoat: 1, clearcoatRoughness: .16, ior: 1.46, envMapIntensity: .85 });
+            }
+            const yellow = plastic(0xffca05, .22);
+            const suit = plastic(0x181d28, .32);
+            const lapel = plastic(0x303848, .27);
+            const white = plastic(0xfafafa, .32);
+            const red = plastic(0xb80e21, .27);
+            const black = plastic(0x080b10, .3);
+            const gold = new T.MeshStandardMaterial({ color: 0xd4af53, metalness: .8, roughness: .25 });
+            const character = new T.Group();
+            scene.add(character);
+            const parts = [];
+
+            function mesh(geometry, material, parent, x = 0, y = 0, z = 0) {
+                const object = new T.Mesh(geometry, material);
+                object.position.set(x, y, z);
+                object.castShadow = true;
+                object.receiveShadow = true;
+                parent.add(object);
+                return object;
+            }
+            function roundedBox(w, h, d, radius = .07) {
+                const g = new T.BoxGeometry(w, h, d, 8, 8, 8);
+                const p = g.attributes.position;
+                const v = new T.Vector3();
+                const inner = new T.Vector3();
+                const half = new T.Vector3(w / 2 - radius, h / 2 - radius, d / 2 - radius);
+                for (let i = 0; i < p.count; i++) {
+                    v.fromBufferAttribute(p, i);
+                    inner.set(T.MathUtils.clamp(v.x, -half.x, half.x), T.MathUtils.clamp(v.y, -half.y, half.y), T.MathUtils.clamp(v.z, -half.z, half.z));
+                    v.sub(inner).normalize().multiplyScalar(radius).add(inner);
+                    p.setXYZ(i, v.x, v.y, v.z);
+                }
+                g.computeVertexNormals();
+                return g;
+            }
+            function box(parent, material, w, h, d, x, y, z, r = .06) {
+                return mesh(roundedBox(w, h, d, r), material, parent, x, y, z);
+            }
+            function cylinder(parent, material, rt, rb, h, x, y, z) {
+                return mesh(new T.CylinderGeometry(rt, rb, h, 64), material, parent, x, y, z);
+            }
+            function polygon(points, material, parent, z) {
+                const shape = new T.Shape();
+                shape.moveTo(...points[0]);
+                points.slice(1).forEach(p => shape.lineTo(...p));
+                shape.closePath();
+                return mesh(new T.ShapeGeometry(shape), material, parent, 0, 0, z);
+            }
+            function part(index, x, y, z) {
+                const group = new T.Group();
+                group.position.set(x, y, z);
+                group.userData.index = index;
+                parts[index] = group;
+                character.add(group);
+                return group;
+            }
+
+            // Piernas, pies y cadera.
+            [-1, 1].forEach((side, i) => {
+                const leg = part(i + 2, side * .365, 1.3, 0);
+                box(leg, suit, .64, 1.04, .68, 0, -.53, 0, .065);
+                box(leg, black, .65, .32, .91, 0, -1.13, .105, .055);
+                const joint = cylinder(leg, suit, .285, .285, .58, 0, -.06, 0);
+                joint.rotation.z = Math.PI / 2;
+            });
+            box(character, suit, 1.36, .31, .75, 0, 1.46, 0, .06);
+
+            // Torso trapezoidal biselado.
+            const torsoShape = new T.Shape();
+            torsoShape.moveTo(-.75, 1.63);
+            torsoShape.lineTo(.75, 1.63);
+            torsoShape.lineTo(.57, 2.92);
+            torsoShape.lineTo(-.57, 2.92);
+            torsoShape.closePath();
+            const torsoGeometry = new T.ExtrudeGeometry(torsoShape, { depth: .68, bevelEnabled: true, bevelSegments: 5, steps: 1, bevelSize: .045, bevelThickness: .045, curveSegments: 16 });
+            torsoGeometry.translate(0, 0, -.34);
+            mesh(torsoGeometry, suit, character);
+            polygon([[-.34, 2.94], [.34, 2.94], [0, 2.03]], white, character, .391);
+            polygon([[-.34, 2.96], [-.55, 2.79], [-.38, 2.57], [-.46, 2.48], [0, 2.03]], lapel, character, .402);
+            polygon([[.34, 2.96], [.55, 2.79], [.38, 2.57], [.46, 2.48], [0, 2.03]], lapel, character, .402);
+            polygon([[-.09, 2.84], [.09, 2.84], [.055, 2.70], [-.055, 2.70]], red, character, .408);
+            polygon([[-.05, 2.7], [.05, 2.7], [.085, 2.3], [0, 2.2], [-.085, 2.3]], red, character, .409);
+            polygon([[.38, 2.49], [.41, 2.58], [.46, 2.51], [.52, 2.56], [.56, 2.49]], white, character, .406);
+            box(character, lapel, .25, .026, .018, .46, 2.475, .412, .006);
+            for (const y of [1.86, 2.02]) {
+                const button = cylinder(character, gold, .03, .03, .018, 0, y, .415);
+                button.rotation.x = Math.PI / 2;
+            }
+            cylinder(character, yellow, .245, .245, .2, 0, 3.04, 0);
+
+            // Brazos articulados y manos abiertas.
+            [-1, 1].forEach((side, i) => {
+                const arm = part(i, side * .77, 2.77, 0);
+                arm.rotation.z = side * .15;
+                mesh(new T.SphereGeometry(.245, 32, 24), suit, arm, 0, -.03, 0);
+                const sleeve = cylinder(arm, suit, .23, .19, .77, 0, -.42, 0);
+                sleeve.rotation.x = -.10;
+                cylinder(arm, white, .192, .19, .095, 0, -.83, .05);
+                cylinder(arm, yellow, .11, .11, .15, 0, -.93, .055);
+                const claw = mesh(new T.TorusGeometry(.17, .074, 20, 64, Math.PI * 1.5), yellow, arm, 0, -1.105, .065);
+                claw.rotation.z = -Math.PI / 4;
+                for (const a of [-Math.PI / 4, Math.PI * 1.25]) {
+                    mesh(new T.SphereGeometry(.074, 20, 16), yellow, arm, Math.cos(a) * .17, -1.105 + Math.sin(a) * .17, .065);
+                }
+            });
+
+            // Cabeza y tetón superior hueco.
+            const head = part(4, 0, 3.12, 0);
+            const profile = [[0, 0], [.43, 0], [.49, .018], [.535, .055], [.55, .11], [.55, .77], [.535, .825], [.49, .865], [.43, .88], [0, .88]].map(p => new T.Vector2(...p));
+            mesh(new T.LatheGeometry(profile, 96), yellow, head);
+            const studProfile = [[.16, .88], [.16, 1.065], [.175, 1.08], [.255, 1.08], [.272, 1.065], [.272, .90], [.25, .88]].map(p => new T.Vector2(...p));
+            mesh(new T.LatheGeometry(studProfile, 64), yellow, head);
+            cylinder(head, yellow, .16, .16, .018, 0, .9, 0);
+
+            // Imagen de la cara sobre la superficie curva de la cabeza.
+            const faceCanvas = document.createElement("canvas");
+            faceCanvas.width = 1024;
+            faceCanvas.height = 768;
+            const ctx = faceCanvas.getContext("2d");
+            const faceTexture = new T.CanvasTexture(faceCanvas);
+            faceTexture.colorSpace = T.SRGBColorSpace;
+            faceTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            const faceImage = new Image();
+            faceImage.crossOrigin = "anonymous";
+            faceImage.onload = () => {
+                try {
+                    ctx.clearRect(0, 0, faceCanvas.width, faceCanvas.height);
+                    ctx.drawImage(faceImage, 0, 0, faceCanvas.width, faceCanvas.height);
+                    const imageData = ctx.getImageData(0, 0, faceCanvas.width, faceCanvas.height);
+                    const pixels = imageData.data;
+                    for (let i = 0; i < pixels.length; i += 4) {
+                        const r = pixels[i];
+                        const g = pixels[i + 1];
+                        const b = pixels[i + 2];
+                        const yellowMask = T.MathUtils.smoothstep(r, 150, 220) * T.MathUtils.smoothstep(g, 120, 185) * (1 - T.MathUtils.smoothstep(b, 100, 170));
+                        pixels[i + 3] = Math.round(pixels[i + 3] * (1 - yellowMask));
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+                    faceTexture.needsUpdate = true;
+                } catch (error) {
+                    console.error("No se pudo preparar la textura de la cara.", error);
+                    const message = document.getElementById("error");
+                    message.hidden = false;
+                    message.textContent = "No se pudo preparar la imagen de la cara. Comprueba que el navegador permite cargar la imagen externa.";
+                }
+            };
+            faceImage.onerror = () => {
+                const message = document.getElementById("error");
+                message.hidden = false;
+                message.textContent = "No se pudo cargar la imagen de la cara. Comprueba tu conexión a internet y vuelve a cargar la página.";
+            };
+            faceImage.src = "https://cdn.abacus.ai/images/9983c4cf-2c9c-4b88-81e4-26426c0cdda5.png";
+            const faceGeometry = new T.PlaneGeometry(1, .68, 64, 1);
+            const positions = faceGeometry.attributes.position;
+            for (let i = 0; i < positions.count; i++) {
+                const x = positions.getX(i);
+                const angle = x * 2;
+                positions.setXYZ(i, Math.sin(angle) * .553, positions.getY(i) + .46, Math.cos(angle) * .553);
+            }
+            faceGeometry.computeVertexNormals();
+            const faceMaterial = new T.MeshPhysicalMaterial({ map: faceTexture, transparent: true, roughness: .29, clearcoat: .7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
+            const face = mesh(faceGeometry, faceMaterial, head);
+            face.castShadow = false;
+
+            // Cinco zonas interactivas.
+            parts.forEach((group, index) => {
+                group.traverse(object => { if (object.isMesh) object.userData.part = index; });
+            });
+            const raycaster = new T.Raycaster();
+            const pointer = new T.Vector2(9, 9);
+            const target = new T.Vector2();
+            const current = new T.Vector2();
+            const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+            let hover = -1;
+            let keyboardPart = 4;
+            let keyboardMode = false;
+            const outlineMaterials = [];
+            for (let i = 0; i < 5; i++) {
+                outlineMaterials.push(new T.MeshBasicMaterial({ color: 0xffdd00, transparent: true, opacity: 0.0, depthWrite: false, blending: T.AdditiveBlending }));
+            }
+            const outlines = [];
+            parts.forEach((group, index) => {
+                const copies = [];
+                const originals = [];
+                group.traverse(o => { if (o.isMesh) originals.push(o); });
+                originals.forEach(original => {
+                    if (original === face) return;
+                    const overlay = new T.Mesh(original.geometry, outlineMaterials[index]);
+                    overlay.position.copy(original.position);
+                    overlay.rotation.copy(original.rotation);
+                    overlay.scale.copy(original.scale).multiplyScalar(1.015);
+                    overlay.visible = false;
+                    overlay.userData.outline = true;
+                    group.add(overlay);
+                    copies.push(overlay);
+                });
+                outlines.push(copies);
+            });
+            function pick() {
+                raycaster.setFromCamera(pointer, camera);
+                const hits = raycaster.intersectObject(character, true).filter(h => !h.object.userData.outline);
+                const first = hits[0];
+                return first && Number.isInteger(first.object.userData.part) ? first.object.userData.part : -1;
+            }
+            function updatePointer(event) {
+                const r = canvas.getBoundingClientRect();
+                pointer.set((event.clientX - r.left) / r.width * 2 - 1, -(event.clientY - r.top) / r.height * 2 + 1);
+            }
+            window.addEventListener("pointermove", event => {
+                if (dialog.open) return;
+                keyboardMode = false;
+                updatePointer(event);
+                const r = canvas.getBoundingClientRect();
+                target.set(T.MathUtils.clamp((event.clientX - r.left - r.width / 2) / (r.width * .4), -1, 1), T.MathUtils.clamp(-(event.clientY - r.top - r.height * .35) / (r.height * .5), -1, 1));
+            }, { passive: true });
+            canvas.addEventListener("pointerleave", () => { pointer.set(9, 9); hover = -1; });
+            document.documentElement.addEventListener("pointerleave", () => { target.set(0, 0); pointer.set(9, 9); });
+            canvas.addEventListener("click", event => {
+                updatePointer(event);
+                scene.updateMatrixWorld(true);
+                const index = pick();
+                if (index >= 0) openReflection(index);
+            });
+            canvas.addEventListener("keydown", event => {
+                if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+                    event.preventDefault();
+                    keyboardMode = true;
+                    keyboardPart = (keyboardPart + (event.key === "ArrowLeft" || event.key === "ArrowUp" ? 4 : 1)) % 5;
+                }
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openReflection(keyboardPart);
+                }
+            });
+            canvas.addEventListener("focus", () => { keyboardMode = true; });
+            canvas.addEventListener("blur", () => { keyboardMode = false; });
+            function resize() {
+                const w = stage.clientWidth;
+                const h = stage.clientHeight;
+                if (!w || !h) return;
+                renderer.setSize(w, h);
+                camera.aspect = w / h;
+                const verticalFov = T.MathUtils.degToRad(camera.fov);
+                const fitHeight = 5.35 / (2 * Math.tan(verticalFov / 2));
+                const fitWidth = 3.65 / (2 * Math.tan(verticalFov / 2) * camera.aspect);
+                const distance = Math.max(fitHeight, fitWidth);
+                camera.position.set(.3, focus.y + distance * .10, distance);
+                camera.lookAt(focus);
+                camera.updateProjectionMatrix();
+            }
+            new ResizeObserver(resize).observe(stage);
+            resize();
+            const clock = new T.Clock();
+            function frame() {
+                const dt = Math.min(clock.getDelta(), .05);
+                const time = clock.getElapsedTime();
+                const ease = 1 - Math.exp(-8 * dt);
+                const desired = dialog.open ? new T.Vector2(0, 0) : target;
+                current.lerp(desired, ease);
+                if (!reduced.matches) {
+                    character.rotation.y = -.10 + current.x * .22;
+                    head.rotation.y = current.x * .32;
+                    head.rotation.x = -current.y * .19;
+                    parts[0].rotation.z = -.15 - current.x * .035;
+                    parts[1].rotation.z = .15 - current.x * .035;
+                    parts[0].rotation.x = -Math.max(0, current.y) * .09;
+                    parts[1].rotation.x = -Math.max(0, current.y) * .09;
+                } else {
+                    character.rotation.y = -.10;
+                    head.rotation.set(0, 0, 0);
+                    parts[0].rotation.set(0, 0, -.15);
+                    parts[1].rotation.set(0, 0, .15);
+                }
+                scene.updateMatrixWorld(true);
+                hover = dialog.open ? -1 : keyboardMode ? keyboardPart : pick();
+                canvas.style.cursor = hover >= 0 ? "pointer" : "default";
+
+                const cycleSpeed = 2.5; 
+                const t = time * cycleSpeed;
+                
+                const groupOpacities = [
+                    Math.max(0, Math.sin(t)) * 0.5,
+                    Math.max(0, Math.sin(t - (2 * Math.PI / 3))) * 0.5,
+                    Math.max(0, Math.sin(t - (4 * Math.PI / 3))) * 0.5
+                ];
+
+                outlines.forEach((list, index) => {
+                    let groupIndex = 0;
+                    if (index === 2 || index === 3) groupIndex = 1;
+                    if (index === 4) groupIndex = 2;
+
+                    if (index === hover) {
+                        outlineMaterials[index].opacity = 0.6;
+                        list.forEach(o => o.visible = true);
+                    } else if (hover === -1) {
+                        const op = groupOpacities[groupIndex];
+                        if (op > 0.01) {
+                            outlineMaterials[index].opacity = op;
+                            list.forEach(o => o.visible = true);
+                        } else {
+                            list.forEach(o => o.visible = false);
+                        }
+                    } else {
+                        list.forEach(o => o.visible = false);
+                    }
+                });
+
+                renderer.render(scene, camera);
+                requestAnimationFrame(frame);
+            }
+            frame();
+        }
+        try {
+            start();
+        } catch (error) {
+            console.error(error);
+            const message = document.getElementById("error");
+            message.hidden = false;
+            message.textContent = "No se pudo iniciar el gráfico 3D. Comprueba tu conexión a internet y que la aceleración gráfica esté activada en el navegador.";
+        }
+    </script>
+</body>
+
+</html>
