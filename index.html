@@ -219,22 +219,27 @@
         const messages = [
             {
                 title: "El Ingeniero Creativo",
+                image: "imgUno.jpeg",
                 text: "<strong>¡Jugar es nuestra mayor herramienta!</strong><br><br>El ingeniero creativo tiene la habilidad fundamental de <em>'JUGAR'</em> con ideas y conceptos. No te limites a lo conocido: construir, probar y ajustar te permite descubrir soluciones innovadoras que antes no veías."
             },
             {
                 title: "¡Aprendamos a hablar en LEGO!",
+                image: "imgDos.jpeg",
                 text: "<strong>Reglas del Juego Serio (LSP):</strong><br><ul><li>Observen los modelos y escuchen las historias. No hay que interpretar ni criticar.</li><li>Diferentes modos de pensar enriquecen al equipo. ¡El respeto es clave!</li><li>No se preocupen por el resultado final, disfruten el proceso.</li></ul><strong>¡Vamos a descubrir algo nuevo!</strong>"
             },
             {
                 title: "La resolucion de problemas requiere entender y un actuar 😳",
+                image: "imgTres.jpeg",
                 text: "El proceso para resolver problemas paso a paso.<br>Los problemas pueden muchas veces ser impredecibles y dificiles de entender. Para poder entenderlos en estos casos necesitamos primero actuar. Hacer varias iteraciones para poder entender las condiciones del mismo y llegar a una solucion."
             },
             {
                 title: "Marco Cynefin",
+                image: "imgCuatro.jpeg",
                 text: "<strong>Los Dominios de los Problemas</strong><br><br>🔹 <em>Simple:</em> Mejores prácticas (Percibir - Categorizar - Responder)<br>🔹 <em>Complicado:</em> Buenas prácticas (Percibir - Analizar - Responder)<br>🔹 <em>Complejo:</em> Prácticas emergentes (Probar - Percibir - Responder)<br>🔹 <em>Caótico:</em> Prácticas novedosas (Actuar - Percibir - Responder)"
             },
             {
                 title: "¿Qué descubrimos?",
+                image: "imgCinco.jpeg",
                 text: "<strong>Debriefing y Reflexión</strong><br><br>Nuestro estilo natural de imaginación domina nuestras respuestas cuando hay necesidad de resultados creativos. ¡Reconocer cómo imaginamos nos invita a explorar otras formas de crear!"
             }
         ];
@@ -244,7 +249,8 @@
 
         function openReflection(index) {
             document.getElementById("dialog-title").textContent = messages[index].title;
-            document.getElementById("text").innerHTML = messages[index].text;
+            const imgHtml = messages[index].image ? `<img src="${messages[index].image}" alt="${messages[index].title}" style="width: 100%; max-height: 250px; object-fit: cover; border-radius: 12px; margin-bottom: 16px;">` : "";
+            document.getElementById("text").innerHTML = imgHtml + messages[index].text;
             if (!dialog.open) dialog.showModal();
             closeButton.focus();
         }
